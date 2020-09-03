@@ -95,9 +95,7 @@ class PipelineOwner {
       final List<RenderObject> dirtyNodes = _nodesNeedingLayout;  
       _nodesNeedingLayout = <RenderObject>[];  
       //对dirtyNodes排序后遍历
-      for (final RenderObject node in 
-				dirtyNodes..sort((RenderObject a, RenderObject b) => a.depth - b.depth)) {  
-				
+      for (final RenderObject node in dirtyNodes..sort((RenderObject a, RenderObject b) => a.depth - b.depth)) {  
         if (node._needsLayout && node.owner == this) {
           //调用RenderObject._layoutWithoutResize()进行layout
           node._layoutWithoutResize();  
@@ -111,7 +109,7 @@ class PipelineOwner {
 }
 ```
 
-* **_nodeNeedsCompositingBitsUpdate**：这个列表里保存的是需要更新Compositing标志位的`RenderObject`，当`RenderObject.markNeedsCompositingBitsUpdate()`方法被调用时，将自己加入`_nodeNeedsCompositingBitsUpdate`，同时如果父节点和自己都不是repaintBoundary，则将父节点也加入`_nodeNeedsCompositingBitsUpdate`
+* **_nodeNeedsCompositingBitsUpdate**：这个列表里保存的是需要更新**compositing**标识的`RenderObject`，当`RenderObject.markNeedsCompositingBitsUpdate()`方法被调用时，将自己加入`_nodeNeedsCompositingBitsUpdate`，同时如果父节点和自己都不是repaintBoundary，则将父节点也加入`_nodeNeedsCompositingBitsUpdate`
 
 ```dart
 abstract class RenderObject {
@@ -148,7 +146,7 @@ abstract class RenderObject {
 }
 ```
 
-在`PipelineOwner.flushCompositingBits()`阶段，`_nodesNeedingCompositingBitsUpdate`里的`RenderObject`根据在树中的深度排序后依次调用每个元素的`_updateCompositingBits()`方法，来完成compositing标识位的更新过程，之后就进入到**Paint**阶段了
+在`PipelineOwner.flushCompositingBits()`阶段，`_nodesNeedingCompositingBitsUpdate`里的`RenderObject`根据在树中的深度排序后依次调用每个元素的`_updateCompositingBits()`方法，来完成**compositing**标识的更新过程，之后就进入到**Paint**阶段了
 
 ```dart
 class PipelineOwner {
@@ -175,4 +173,36 @@ class PipelineOwner {
 ```
 
 > 关于compositing：
-> RenderObject中有一个属性needsCompositing，用来表示该节点或其子节点在绘制(paint)sh
+> 
+> RenderObject中有一个属性`needsCompositing`，用来表示该节点或其子节点在绘制(paint)是使用某些操作是否需要使用一个单独的Layer
+> 如果某个`RenderObject`是`repaintBoundary`或`alwaysNeedCompositing`，则这个节点会使用单独的一层Layer来绘制（即拥有一个单独的canvas），那么在这些节点的父节点在Layer上绘制时，某些操作（clip，transform等）不能直接绘制在当前canvas上，因为当前canvas的操作无法影响子节点Layer，这时就必须提供一个单独的ClipLayer或者TransformLayer，从而使这些操作能够影响子节点的Layer
+> 受`needsCompositing`影响的包括`PaintingContext`中的几个方法：
+	> * `PaintingContext.pushClipRect()`
+	> * `PaintingContext.pushClipRRect()`
+	> * `PaintingContext.pushClipPath()`
+	> * `PaintingContext.pushTransform()`
+>
+> 以`PaintingContext.pushTransform()`为例：
+> ```dart
+> class PaintingContext {
+>   //...
+>   TransformLayer pushTransform(bool needsCompositing, Offset offset, Matrix4 transform, PaintingContextCallback painter, { TransformLayer oldLayer }) {
+>     if (needsCompositing) {
+>       //如果需要compositing就创建一个TransformLayer
+>       final TransformLayer layer = oldLayer ?? TransformLayer();
+>       layer.transform = effectiveTransform;
+>       pushLayer(layer,  painter,  offset,  childPaintBounds:MatrixUtils.inverseTransformRect(effectiveTransform, estimatedBounds),);
+>       return layer;
+>     } else {
+>       //如果不需要compositing则直接在当前画布上操作
+>       canvas..save()..transform(effectiveTransform.storage);
+>       painter(this, offset);
+>       canvas.restore();
+>       return null;
+>     }
+>   }
+>   //...
+> }
+> ```
+
+
