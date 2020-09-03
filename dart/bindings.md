@@ -1,5 +1,6 @@
 ## Bindings
 Bindings是整个Flutter的基石，为Flutter提供底层基础功能
+
 ![enter image description here](https://raw.githubusercontent.com/Ryan-Hu/LearnFlutter/master/images/binding-overview.svg)
 
 * `ServicesBinding`：负责Flutter与原生端的通信（`BinaryMessenger`）
@@ -13,6 +14,7 @@ Bindings是整个Flutter的基石，为Flutter提供底层基础功能
 `ServicesBinding`通过`BinaryMessenger`机制负责所有原生与Flutter的数据通信，其中初始化了一个`_defaultBinaryMessenger`对象，其默认实现是`_DefaultBinaryMessenger`类，这个类负责：
 * 接收从`ui.Window.onPlatformMessage`传过来的消息，并分发给注册的`MessageHandler`
 * 调用`ui.Window.onPlatformMessage`把Flutter端的消息发给原生
+
 
 ![enter image description here](https://raw.githubusercontent.com/Ryan-Hu/LearnFlutter/master/images/binding-services.svg)
 
@@ -52,6 +54,7 @@ void drawFrame() {
 #### PipelineOwner
 `PipelineOwner`是Layout和Paint的入口，管理整棵`RenderObject`树，树的根节点是一个特殊的`RenderObject`对象 -- `RenderView`
 ![enter image description here](https://raw.githubusercontent.com/Ryan-Hu/LearnFlutter/master/images/binding-rendering-pipeline.svg)
+
 `PipelineOwner`内部维护了4个`List<RenderObject>`来存储被标记为dirty的`RenderObject`对象：
 
 * **_nodeNeedsLayout**：这个列表保存了需要重新Layout的`RenderObject`，当`RenderObject.markNeedsLayout()`方法被调用时，如果当前`RenderObject`是`relayoutBoundary`，则将自己加入` _nodeNeedsLayout`，否则将离自己最近的`relayoutBoundary`祖先加入` _nodeNeedsLayout`
