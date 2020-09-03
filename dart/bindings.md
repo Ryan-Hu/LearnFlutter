@@ -174,9 +174,45 @@ class PipelineOwner {
 
 > 关于compositing：
 > 
-> RenderObject中有一个属性`needsCompositing`，用来表示该节点或其子节点在绘制(paint)是使用某些操作是否需要使用一个单独的Layer
+> RenderObject中有一个属性`needsCompositing`，用来表示该节点或其子节点在绘制(paint)时使用某些操作（clip，transform等）是否需要使用一个单独的Layer
 > 
-> 如果某个`RenderObject`是`repaintBoundary`或`alwaysNeedCompositing`，则这个节点会使用单独的一层Layer来绘制（即拥有一个单独的canvas），那么在这些节点的父节点在Layer上绘制时，某些操作（clip，transform等）不能直接绘制在当前canvas上，因为当前canvas的操作无法影响子节点Layer，这时就必须提供一个单独的ClipLayer或者TransformLayer，从而使这些操作能够影响子节点的Layer
+> 如果某个`RenderObject`是`repaintBoundary`或`alwaysNeedCompositing`，则这个节点会使用单独的一层Layer来绘制（即拥有一个单独的canvas），并且当前节点及其所有祖先节点的`needsCompositing`都会被设置为true，具体可见`RenderObject._updateCompositingBits()`方法：
+> ```dart
+> class RenderObject {
+>   //...
+>     void _updateCompositingBits() {
+>     
+>       if (!_needsCompositingBitsUpdate)
+>         return;
+>         
+>       final bool oldNeedsCompositing = _needsCompositing;
+>       _needsCompositing = false;
+>       
+>       //遍历所有的child，如果有子节点needsCompositing，则当前节点也needsCompositing
+>       visitChildren((RenderObject child) {
+>         child._updateCompositingBits();
+>         if (child.needsCompositing) {
+>           _needsCompositing = true;
+>         }
+>       }
+>       
+>       //如果是repaintBoundary或者被设置为alwaysNeedsCompositing，则needsCompositing
+>       if (isRepaintBoundary || alwaysNeedsCompositing) {
+>         _needsCompositing = true;
+>       }
+>       
+>       //needsCompositing改变后需要重新绘制
+>       if (oldNeedsCompositing != _needsCompositing) {
+>         markNeedsPaint();
+>       }
+>       
+>       _needsCompositingBitsUpdate = false;
+>     }
+>   //...
+> }
+> ```
+> 
+> 那么当这个节点或其祖先节点在Layer上绘制时，某些操作不能直接绘制在当前canvas上，因为当前canvas的操作无法影响子节点Layer，这时就必须提供一个单独的ClipLayer或者TransformLayer，从而使这些操作能够影响子节点的Layer
 > 
 > 受`needsCompositing`影响的包括`PaintingContext`中的几个方法：
 > * `PaintingContext.pushClipRect()`
@@ -207,4 +243,67 @@ class PipelineOwner {
 > }
 > ```
 
+* **_nodesNeedingPaint**：这个列表保存了需要重新Paint的`RenderObject`，当`RenderObject.markNeedsPaint()`方法被调用时，如果自己是repaintBoundary，则将自己添加到`_nodesNeedingPaint`，否则向上寻找最近的repaintBoundary添加到`_nodesNeedingPaint`：
 
+```dart
+class RenderObject {
+  //...
+  void markNeedsPaint() {
+  
+    if (_needsPaint)
+      return;
+    _needsPaint = true;
+    
+    if (isRepaintBoundary) {
+      //如果自己是repaintBoundary，则将自己加入_nodesNeedingPaint列表
+      if (owner != null) {
+        owner._nodesNeedingPaint.add(this);
+        owner.requestVisualUpdate();
+      }
+    } else if (parent is RenderObject) {
+      //如果自己不是repaintBoundary，向上寻找repaintBoundary
+      final RenderObject parent = this.parent as RenderObject;
+      parent.markNeedsPaint();
+    } else {
+      if (owner != null) {
+        owner.requestVisualUpdate();
+      }
+    }
+  }
+  //...
+}
+```
+在`PipelineOwner.flushPaint()`阶段，`_nodesNeedingPaint`里的`RenderObject`根据在树中的深度排序后依次在每个元素上调用`PaintingContext.repaintCompositedChild()`方法，来完成**Paint**过程：
+```dart
+class PipelineOwner {
+  //...
+  void flushPaint() {
+  
+    final List<RenderObject> dirtyNodes = _nodesNeedingPaint;
+    _nodesNeedingPaint = <RenderObject>[];
+    
+    //遍历
+    for (final RenderObject node in dirtyNodes..sort((RenderObject a, RenderObject b) => b.depth - a.depth)) {
+      if (node._needsPaint && node.owner == this) {
+        if (node._layer.attached) {
+          //绘制RenderObject
+          //这里最终会调用RenderObject._paintWithContext()方法，执行真正的绘制
+          PaintingContext.repaintCompositedChild(node);
+        } else {
+          node._skippedPaintingOnLayer();
+        }
+      }
+    }
+  }
+  //...
+}
+```
+
+>关于PaintingContext
+> (见Paint部分)
+
+* **_nodesNeedingSemantics**：待补充
+
+## GestrueBinding
+
+## SementicsBinding
