@@ -43,10 +43,10 @@ void drawFrame() {
   pipelineOwner.flushLayout();  
   pipelineOwner.flushCompositingBits();  
   pipelineOwner.flushPaint();  
- if (sendFramesToEngine) {  
+  if (sendFramesToEngine) {  
     renderView.compositeFrame(); // this sends the bits to the GPU  
-  pipelineOwner.flushSemantics(); // this also sends the semantics to the OS.  
-  //...
+    pipelineOwner.flushSemantics(); // this also sends the semantics to the OS.  
+    //...
   }  
 }
 ```
@@ -62,23 +62,23 @@ void drawFrame() {
 ```dart
 abstract class RenderObject {
 
-	//...
+  //...
 
-	void markNeedsLayout() {  
-		if (_relayoutBoundary != this) {
-			//如果自己不是relayoutBoundary则让父节点markNeedsLayout  
-			markParentNeedsLayout();  
-		} else {  
-			//把自己标记为需要layout
-			_needsLayout = true;  
-			if (owner != null) {//这里的owner就是PipelineOwner
-				owner._nodesNeedingLayout.add(this);  
-				owner.requestVisualUpdate();  
-			}  
-		}  
-	}
+  void markNeedsLayout() {  
+    if (_relayoutBoundary != this) {
+      //如果自己不是relayoutBoundary则让父节点markNeedsLayout  
+      markParentNeedsLayout();  
+    } else {  
+      //把自己标记为需要layout
+      _needsLayout = true;  
+      if (owner != null) {//这里的owner就是PipelineOwner
+        owner._nodesNeedingLayout.add(this);  
+        owner.requestVisualUpdate();  
+      }  
+    }  
+  }
 
-	//...
+  //...
 }
 ```
 
@@ -86,28 +86,28 @@ abstract class RenderObject {
 ```dart
 class PipelineOwner {
 
-	//...
+  //...
 
-	void flushLayout() {
-		//...
-		while (_nodesNeedingLayout.isNotEmpty) {  
+  void flushLayout() {
+    //...
+    while (_nodesNeedingLayout.isNotEmpty) {  
 		
-			final List<RenderObject> dirtyNodes = _nodesNeedingLayout;  
-			_nodesNeedingLayout = <RenderObject>[];  
-			//对dirtyNodes排序后遍历
-			for (final RenderObject node in 
+      final List<RenderObject> dirtyNodes = _nodesNeedingLayout;  
+      _nodesNeedingLayout = <RenderObject>[];  
+      //对dirtyNodes排序后遍历
+      for (final RenderObject node in 
 				dirtyNodes..sort((RenderObject a, RenderObject b) => a.depth - b.depth)) {  
 				
-				if (node._needsLayout && node.owner == this) {
-					//调用RenderObject._layoutWithoutResize()进行layout
-					node._layoutWithoutResize();  
-				}
-			}  
-		}
-		//...
-	}
+        if (node._needsLayout && node.owner == this) {
+          //调用RenderObject._layoutWithoutResize()进行layout
+          node._layoutWithoutResize();  
+        }
+      }  
+    }
+    //...
+  }
 
-	//...
+  //...
 }
 ```
 
@@ -116,33 +116,35 @@ class PipelineOwner {
 ```dart
 abstract class RenderObject {
 
-	//...
+  //...
 
-	void markNeedsCompositingBitsUpdate() {
+  void markNeedsCompositingBitsUpdate() {
 	
-		if (_needsCompositingBitsUpdate)  
-		  return;
+    if (_needsCompositingBitsUpdate)  
+      return;
 		  
-		_needsCompositingBitsUpdate = true;  
+    _needsCompositingBitsUpdate = true;  
 		
-		if (parent is RenderObject) {  
-			final RenderObject parent = this.parent as RenderObject;  
-			if (parent._needsCompositingBitsUpdate)  
-			    return;  
-			if (!isRepaintBoundary && !parent.isRepaintBoundary) {  
-				//如果自己不是repaintBoundary并且parent不是repaintBoundary则标记parent
-			    parent.markNeedsCompositingBitsUpdate();  
-				return;  
-			}  
-		}
+    if (parent is RenderObject) {  
+    
+      final RenderObject parent = this.parent as RenderObject;  
+      if (parent._needsCompositingBitsUpdate)  
+        return;  
+        
+      if (!isRepaintBoundary && !parent.isRepaintBoundary) {  
+        //如果自己不是repaintBoundary并且parent不是repaintBoundary则标记parent
+        parent.markNeedsCompositingBitsUpdate();  
+        return;  
+      }  
+    }
 		
-		// parent is fine (or there isn't one), but we are dirty  
-		if (owner != null)  {
-			owner._nodesNeedingCompositingBitsUpdate.add(this);
-		}
-	}
+    // parent is fine (or there isn't one), but we are dirty  
+    if (owner != null)  {
+      owner._nodesNeedingCompositingBitsUpdate.add(this);
+    }
+  }
 
-	//...
+  //...
 }
 ```
 
@@ -151,24 +153,24 @@ abstract class RenderObject {
 ```dart
 class PipelineOwner {
 
-	//...
+  //...
 
-	void flushCompositingBits() {  
+  void flushCompositingBits() {  
 	
-		//深度排序
-		_nodesNeedingCompositingBitsUpdate.sort(
-		(RenderObject a, RenderObject b) => a.depth - b.depth);  
+    //深度排序
+    _nodesNeedingCompositingBitsUpdate.sort(
+      (RenderObject a, RenderObject b) => a.depth - b.depth);  
 		
-		for (final RenderObject node in _nodesNeedingCompositingBitsUpdate) {  
-			if (node._needsCompositingBitsUpdate && node.owner == this) {
-				//调用RenderObject._updateCompositingBits()进行compositing标识位的更新
-				node._updateCompositingBits(); 
-			}
-		}  
-		_nodesNeedingCompositingBitsUpdate.clear();  
-	}
+    for (final RenderObject node in _nodesNeedingCompositingBitsUpdate) {  
+      if (node._needsCompositingBitsUpdate && node.owner == this) {
+        //调用RenderObject._updateCompositingBits()进行compositing标识位的更新
+        node._updateCompositingBits(); 
+      }
+    }  
+    _nodesNeedingCompositingBitsUpdate.clear();  
+  }
 	
-	//...
+  //...
 }
 ```
 
