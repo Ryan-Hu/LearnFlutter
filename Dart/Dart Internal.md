@@ -1,15 +1,9 @@
-<!DOCTYPE html>
-<html>
+---
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1.Dart Internal</title>
-  <link rel="stylesheet" href="https://stackedit.io/style.css" />
-</head>
 
-<body class="stackedit">
-  <div class="stackedit__html"><h2 id="isolate">Isolate</h2>
+---
+
+<h2 id="isolate">Isolate</h2>
 <p>Dart中的<code>Isolate</code>对应一个线程/进程，一个Dart环境中可以运行多个<code>Isolate</code><br>
 Dart的入口方法（默认是<code>main()</code>）执行在main isolate中，当需要做复杂计算或IO操作时，可以通过<code>Isolate.spawn()</code>方法创建新的<code>Isolate</code>，<code>Isolate</code>之间通过<code>ReceivePort</code>/<code>SendPort</code>通信:</p>
 <p><img src="https://raw.githubusercontent.com/Ryan-Hu/DOC/master/flutter-dart-internal-isolate.svg" alt="enter image description here"></p>
@@ -59,7 +53,4 @@ Isolate isolate<span class="token punctuation">;</span>
 <h2 id="event--microtask">Event &amp; Microtask</h2>
 <p><code>Isolate</code>是个单线程，他的运行机制是Event Loop，与安卓端的主线程非常类似，不过在<code>Isolate</code>中有两个队列，分别对应的是普通的<strong>event</strong>和优先级较高的<strong>microtask</strong>，当<strong>microtask</strong>队列中有任务时，优先运行这些任务，当<strong>microtask</strong>队列为空时，才会运行普通<strong>event</strong>队列中的任务</p>
 <p><img src="https://raw.githubusercontent.com/Ryan-Hu/DOC/master/flutter-dart-internal-queue.svg" alt="enter image description here"></p>
-</div>
-</body>
 
-</html>
